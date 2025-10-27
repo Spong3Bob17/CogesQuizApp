@@ -1,0 +1,29 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8" />
+    <title>Coges Quiz App</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="container">
+    <h1>Benvenuto nel Coges Quiz App</h1>
+    <p>Inserisci il tuo nome per iniziare il quiz:</p>
+    <input type="text" id="username" placeholder="Il tuo nome..." />
+    <button id="startBtn">Inizia il quiz</button>
+</div>
+
+<script>
+    document.getElementById("startBtn").addEventListener("click", () => {
+        const name = document.getElementById("username").value.trim();
+        if (!name) {
+            alert("Inserisci un nome per continuare!");
+            return;
+        }
+        // Salva il nome nel localStorage e vai alla pagina del quiz
+        localStorage.setItem("username", name);
+        window.location.href = "quiz.html";
+    });
+</script>
+</body>
+</html>

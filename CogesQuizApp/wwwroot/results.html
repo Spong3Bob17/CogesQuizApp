@@ -1,0 +1,120 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Classifica Quiz</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        table {
+            width: 80%;
+            margin: 30px auto;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px 18px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #1976d2;
+            color: white;
+        }
+        tr:hover {
+            background: #f1f1f1;
+        }
+        .back-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 15px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+            width: 200px;
+        }
+        .back-btn:hover {
+            background: #1565c0;
+        }
+    </style>
+</head>
+<body>
+<h1>🏆 Classifica dei Quiz</h1>
+
+<table id="resultsTable">
+    <thead>
+    <tr>
+        <th>Utente</th>
+        <th>Punteggio</th>
+        <th>Data</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr><td colspan="3">Caricamento in corso...</td></tr>
+    </tbody>
+</table>
+
+<a href="index.html" class="back-btn">⬅ Torna alla Home</a>
+
+<script>
+    async function loadResults() {
+        try {
+            const response = await fetch("/results");
+            if (!response.ok) throw new Error("Errore di connessione al server");
+            const results = await response.json();
+
+            console.log("📊 Risultati ricevuti:", results);
+
+            const tbody = document.querySelector("#resultsTable tbody");
+            tbody.innerHTML = "";
+
+            if (!results || results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3">Nessun risultato disponibile</td></tr>`;
+                return;
+            }
+
+            results
+                .sort((a, b) => {
+                    // Estrai il numero da "5/10" -> 5
+                    const scoreA = parseInt((a.Score || "0").split("/")[0]);
+                    const scoreB = parseInt((b.Score || "0").split("/")[0]);
+                    return scoreB - scoreA;
+                })
+                .forEach(r => {
+                    const username = r.Username || 'Anonimo';
+                    const score = r.Score || '0/0';
+                    const date = r.Date || new Date();
+
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                    <td>${username}</td>
+                    <td>${score}</td>
+                    <td>${new Date(date).toLocaleString("it-IT")}</td>
+                `;
+                    tbody.appendChild(row);
+                });
+        } catch (err) {
+            console.error("❌ Errore nel caricamento risultati:", err);
+            const tbody = document.querySelector("#resultsTable tbody");
+            tbody.innerHTML = `<tr><td colspan="3">Errore: ${err.message}</td></tr>`;
+        }
+    }
+
+    loadResults();
+</script>
+</body>
+</html>
