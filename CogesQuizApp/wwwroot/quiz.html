@@ -1,0 +1,138 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="quiz-container">
+    <h2 id="quiz-title"></h2>
+    <div id="question-container"></div>
+    <button id="next-btn">Prossima domanda</button>
+</div>
+
+<script>
+    const username = localStorage.getItem("username");
+    if (!username) {
+        alert("Torna indietro e inserisci il tuo nome!");
+        window.location.href = "index.html";
+    }
+
+    let currentQuestion = 0;
+    let quizData = [];
+    let correctAnswers = 0;
+    let selectedAnswer = null;
+
+    async function loadQuiz() {
+        try {
+            const response = await fetch("/tests");
+            const tests = await response.json();
+            console.log("📚 Tests ricevuti:", tests);
+
+            if (!Array.isArray(tests) || tests.length === 0) {
+                alert("Nessun quiz trovato nel database!");
+                return;
+            }
+
+            const quiz = tests[0];
+            document.getElementById("quiz-title").textContent = quiz.Title;
+            quizData = quiz.Questions;
+
+            showQuestion();
+        } catch (err) {
+            console.error("❌ Errore nel caricamento quiz:", err);
+            alert("Errore nel caricamento dei quiz!");
+        }
+    }
+
+    function showQuestion() {
+        const q = quizData[currentQuestion];
+        if (!q) return;
+
+        const container = document.getElementById("question-container");
+        container.innerHTML = `
+            <h3>${q.Text}</h3>
+            ${q.Answers.map((a, i) => `
+                <button class="answer-btn" data-index="${i}">${a.Text}</button>
+            `).join("")}
+        `;
+
+        document.querySelectorAll(".answer-btn").forEach(btn => {
+            btn.addEventListener("click", e => {
+                document.querySelectorAll(".answer-btn").forEach(b => b.classList.remove("selected"));
+                e.target.classList.add("selected");
+                selectedAnswer = parseInt(e.target.getAttribute("data-index"));
+                document.getElementById("next-btn").style.display = "block";
+            });
+        });
+
+        document.getElementById("next-btn").style.display = "none";
+    }
+
+    document.getElementById("next-btn").addEventListener("click", () => {
+        const q = quizData[currentQuestion];
+
+        // ✅ Controlla che la domanda esista prima di accedere alle proprietà
+        if (!q) {
+            console.error("❌ Domanda non trovata!");
+            return;
+        }
+
+        if (selectedAnswer !== null && selectedAnswer === q.CorrectAnswerIndex) {
+            correctAnswers++;
+        }
+
+        currentQuestion++;
+        selectedAnswer = null;
+
+        if (currentQuestion < quizData.length) {
+            showQuestion();
+        } else {
+            endQuiz();
+        }
+    });
+
+    async function endQuiz() {
+        const scoreString = `${correctAnswers}/${quizData.length}`;  // ✅ Formato stringa
+
+        try {
+            const dataToSend = {
+                Username: username,
+                Score: scoreString,  // ✅ Invia come stringa "2/2"
+                Date: new Date().toISOString()
+            };
+
+            console.log("📤 Dati inviati:", dataToSend);
+
+            const response = await fetch("/results", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dataToSend)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("❌ Errore server:", errorText);
+                throw new Error("Errore nel salvataggio del risultato");
+            }
+
+            const result = await response.json();
+            console.log("✅ Risposta server:", result);
+
+            alert(`🎉 Complimenti ${username}!\nHai completato il quiz con punteggio: ${scoreString}`);
+
+            // Porta alla pagina della classifica
+            window.location.href = "results.html";
+        } catch (err) {
+            console.error("❌ Errore durante il salvataggio del risultato:", err);
+            alert("Si è verificato un errore durante il salvataggio del risultato.");
+        } finally {
+            localStorage.removeItem("username");
+        }
+    }
+
+    loadQuiz();
+</script>
+</body>
+</html>
