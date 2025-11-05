@@ -2,28 +2,229 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8" />
-    <title>Coges Quiz App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coges Quiz App - Homepage</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div id="container">
-    <h1>Benvenuto nel Coges Quiz App</h1>
-    <p>Inserisci il tuo nome per iniziare il quiz:</p>
-    <input type="text" id="username" placeholder="Il tuo nome..." />
-    <button id="startBtn">Inizia il quiz</button>
+    <div class="header">
+        <h1>🎯 Coges Quiz App</h1>
+        <p class="subtitle">Testa le tue conoscenze con i nostri quiz interattivi</p>
+    </div>
+
+    <!-- Sezione inserimento dati -->
+    <div class="form-section">
+        <div class="form-group">
+            <label for="username">👤 Il tuo nome:</label>
+            <input
+                    type="text"
+                    id="username"
+                    placeholder="Inserisci il tuo nome..."
+                    maxlength="50"
+                    autocomplete="name"
+            />
+            <span class="error-message" id="username-error"></span>
+        </div>
+
+        <div class="form-group">
+            <label for="test-select">📚 Scegli un test:</label>
+            <select id="test-select">
+                <option value="">-- Caricamento test in corso... --</option>
+            </select>
+            <span class="error-message" id="test-error"></span>
+        </div>
+
+        <button id="startBtn" class="primary-btn">
+            Inizia il Quiz 🚀
+        </button>
+    </div>
+
+    <!-- Sezione statistiche (opzionale) -->
+    <div class="stats-section">
+        <p class="stats-info">
+            <span id="total-tests">0</span> test disponibili
+        </p>
+    </div>
 </div>
 
 <script>
-    document.getElementById("startBtn").addEventListener("click", () => {
-        const name = document.getElementById("username").value.trim();
-        if (!name) {
-            alert("Inserisci un nome per continuare!");
+    // ============================================
+    // Variabili globali
+    // ============================================
+    let availableTests = [];
+
+    // ============================================
+    // Caricamento test dal server
+    // ============================================
+    async function loadTests() {
+        try {
+            const response = await fetch("/tests");
+
+            if (!response.ok) {
+                throw new Error(`Errore HTTP: ${response.status}`);
+            }
+
+            availableTests = await response.json();
+            console.log("📚 Test caricati:", availableTests);
+
+            populateTestDropdown();
+        } catch (error) {
+            console.error("❌ Errore nel caricamento dei test:", error);
+            showTestError("Impossibile caricare i test. Riprova più tardi.");
+
+            // Mostra un messaggio nel dropdown
+            const select = document.getElementById("test-select");
+            select.innerHTML = '<option value="">❌ Errore nel caricamento</option>';
+        }
+    }
+
+    // ============================================
+    // Popola il dropdown con i test disponibili
+    // ============================================
+    function populateTestDropdown() {
+        const select = document.getElementById("test-select");
+
+        if (!availableTests || availableTests.length === 0) {
+            select.innerHTML = '<option value="">Nessun test disponibile</option>';
+            document.getElementById("total-tests").textContent = "0";
             return;
         }
-        // Salva il nome nel localStorage e vai alla pagina del quiz
-        localStorage.setItem("username", name);
-        window.location.href = "quiz.html";
+
+        // Crea le opzioni del dropdown
+        select.innerHTML = '<option value="">-- Seleziona un test --</option>';
+
+        availableTests.forEach(test => {
+            const option = document.createElement("option");
+            option.value = test.Id || test._id; // Supporta sia Id che _id
+            option.textContent = `${test.Title} (${test.Questions?.length || 0} domande)`;
+            select.appendChild(option);
+        });
+
+        // Aggiorna le statistiche
+        document.getElementById("total-tests").textContent = availableTests.length;
+    }
+
+    // ============================================
+    // Validazione del form
+    // ============================================
+    function validateForm() {
+        let isValid = true;
+
+        // Pulisci messaggi di errore precedenti
+        clearErrors();
+
+        // Validazione nome utente
+        const username = document.getElementById("username").value.trim();
+        if (!username) {
+            showUsernameError("⚠️ Devi inserire il tuo nome per continuare!");
+            isValid = false;
+        } else if (username.length < 2) {
+            showUsernameError("⚠️ Il nome deve contenere almeno 2 caratteri!");
+            isValid = false;
+        }
+
+        // Validazione selezione test
+        const testId = document.getElementById("test-select").value;
+        if (!testId) {
+            showTestError("⚠️ Devi selezionare un test per continuare!");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    // ============================================
+    // Gestione messaggi di errore
+    // ============================================
+    function showUsernameError(message) {
+        const errorElement = document.getElementById("username-error");
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+        document.getElementById("username").classList.add("input-error");
+    }
+
+    function showTestError(message) {
+        const errorElement = document.getElementById("test-error");
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+        document.getElementById("test-select").classList.add("input-error");
+    }
+
+    function clearErrors() {
+        document.getElementById("username-error").style.display = "none";
+        document.getElementById("test-error").style.display = "none";
+        document.getElementById("username").classList.remove("input-error");
+        document.getElementById("test-select").classList.remove("input-error");
+    }
+
+    // ============================================
+    // Avvio del quiz
+    // ============================================
+    document.getElementById("startBtn").addEventListener("click", () => {
+        // Valida il form
+        if (!validateForm()) {
+            return;
+        }
+
+        // Recupera i dati
+        const username = document.getElementById("username").value.trim();
+        const testId = document.getElementById("test-select").value;
+
+        // Genera un ID univoco per questa sessione di test
+        const sessionId = generateSessionId();
+
+        // Costruisci l'URL con i parametri
+        const params = new URLSearchParams({
+            username: username,
+            testId: testId,
+            sessionId: sessionId
+        });
+
+        // Reindirizza alla pagina del quiz
+        window.location.href = `quiz.html?${params.toString()}`;
     });
+
+    // ============================================
+    // Utility: genera un ID di sessione univoco
+    // ============================================
+    function generateSessionId() {
+        // Genera un GUID semplice
+        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // ============================================
+    // Event listener per Enter key
+    // ============================================
+    document.getElementById("username").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            document.getElementById("startBtn").click();
+        }
+    });
+
+    document.getElementById("test-select").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            document.getElementById("startBtn").click();
+        }
+    });
+
+    // ============================================
+    // Rimuovi errori quando l'utente inizia a digitare
+    // ============================================
+    document.getElementById("username").addEventListener("input", () => {
+        document.getElementById("username-error").style.display = "none";
+        document.getElementById("username").classList.remove("input-error");
+    });
+
+    document.getElementById("test-select").addEventListener("change", () => {
+        document.getElementById("test-error").style.display = "none";
+        document.getElementById("test-select").classList.remove("input-error");
+    });
+
+    // ============================================
+    // Carica i test all'avvio della pagina
+    // ============================================
+    loadTests();
 </script>
 </body>
 </html>

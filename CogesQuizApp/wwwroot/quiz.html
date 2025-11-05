@@ -2,137 +2,319 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Quiz</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz in corso - Coges Quiz App</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div id="quiz-container">
-    <h2 id="quiz-title"></h2>
-    <div id="question-container"></div>
-    <button id="next-btn">Prossima domanda</button>
+    <!-- Header con titolo e progress bar -->
+    <div class="quiz-header">
+        <h2 id="quiz-title">Caricamento quiz...</h2>
+        <div class="user-info">
+            👤 <span id="current-user">Utente</span>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+        <div class="progress-info">
+            <span>Domanda <span id="current-question-num">1</span> di <span id="total-questions">0</span></span>
+            <span id="progress-percentage">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <!-- Contenitore domanda -->
+    <div id="question-container">
+        <div class="loading">⏳ Caricamento domanda...</div>
+    </div>
+
+    <!-- Bottone next -->
+    <button id="next-btn" style="display: none;">
+        Prossima domanda →
+    </button>
 </div>
 
 <script>
-    const username = localStorage.getItem("username");
-    if (!username) {
-        alert("Torna indietro e inserisci il tuo nome!");
-        window.location.href = "index.html";
+    // ============================================
+    // Variabili globali
+    // ============================================
+    let username = "";
+    let testId = "";
+    let sessionId = "";
+    let quizData = null;
+    let currentQuestionIndex = 0;
+    let correctAnswers = 0;
+    let selectedAnswerIndex = null;
+
+    // ============================================
+    // Inizializzazione - Leggi parametri URL
+    // ============================================
+    function initQuiz() {
+        const params = new URLSearchParams(window.location.search);
+        username = params.get("username");
+        testId = params.get("testId");
+        sessionId = params.get("sessionId");
+
+        // Validazione parametri
+        if (!username || !testId || !sessionId) {
+            alert("❌ Parametri mancanti! Torna alla homepage.");
+            window.location.href = "index.html";
+            return;
+        }
+
+        // Mostra username
+        document.getElementById("current-user").textContent = username;
+
+        // Carica il quiz
+        loadQuiz();
     }
 
-    let currentQuestion = 0;
-    let quizData = [];
-    let correctAnswers = 0;
-    let selectedAnswer = null;
-
+    // ============================================
+    // Caricamento quiz dal server
+    // ============================================
     async function loadQuiz() {
         try {
             const response = await fetch("/tests");
-            const tests = await response.json();
-            console.log("📚 Tests ricevuti:", tests);
 
-            if (!Array.isArray(tests) || tests.length === 0) {
-                alert("Nessun quiz trovato nel database!");
+            if (!response.ok) {
+                throw new Error("Errore nel caricamento del quiz");
+            }
+
+            const tests = await response.json();
+            console.log("📚 Test ricevuti:", tests);
+
+            // Trova il test selezionato
+            quizData = tests.find(t => (t.Id || t._id) === testId);
+
+            if (!quizData || !quizData.Questions || quizData.Questions.length === 0) {
+                alert("❌ Quiz non trovato o vuoto!");
+                window.location.href = "index.html";
                 return;
             }
 
-            const quiz = tests[0];
-            document.getElementById("quiz-title").textContent = quiz.Title;
-            quizData = quiz.Questions;
+            // Mostra titolo e totale domande
+            document.getElementById("quiz-title").textContent = quizData.Title;
+            document.getElementById("total-questions").textContent = quizData.Questions.length;
 
+            // Mostra la prima domanda
             showQuestion();
-        } catch (err) {
-            console.error("❌ Errore nel caricamento quiz:", err);
-            alert("Errore nel caricamento dei quiz!");
+
+        } catch (error) {
+            console.error("❌ Errore nel caricamento quiz:", error);
+            alert("Si è verificato un errore. Torna alla homepage.");
+            window.location.href = "index.html";
         }
     }
 
+    // ============================================
+    // Mostra la domanda corrente
+    // ============================================
     function showQuestion() {
-        const q = quizData[currentQuestion];
-        if (!q) return;
+        const question = quizData.Questions[currentQuestionIndex];
 
-        const container = document.getElementById("question-container");
-        container.innerHTML = `
-            <h3>${q.Text}</h3>
-            ${q.Answers.map((a, i) => `
-                <button class="answer-btn" data-index="${i}">${a.Text}</button>
-            `).join("")}
-        `;
-
-        document.querySelectorAll(".answer-btn").forEach(btn => {
-            btn.addEventListener("click", e => {
-                document.querySelectorAll(".answer-btn").forEach(b => b.classList.remove("selected"));
-                e.target.classList.add("selected");
-                selectedAnswer = parseInt(e.target.getAttribute("data-index"));
-                document.getElementById("next-btn").style.display = "block";
-            });
-        });
-
-        document.getElementById("next-btn").style.display = "none";
-    }
-
-    document.getElementById("next-btn").addEventListener("click", () => {
-        const q = quizData[currentQuestion];
-
-        // ✅ Controlla che la domanda esista prima di accedere alle proprietà
-        if (!q) {
+        if (!question) {
             console.error("❌ Domanda non trovata!");
             return;
         }
 
-        if (selectedAnswer !== null && selectedAnswer === q.CorrectAnswerIndex) {
+        // Reset selezione
+        selectedAnswerIndex = null;
+        document.getElementById("next-btn").style.display = "none";
+
+        // Aggiorna progress bar
+        updateProgressBar();
+
+        // Crea HTML della domanda
+        const container = document.getElementById("question-container");
+        container.innerHTML = `
+            <div class="question">
+                <h3 class="question-text">${escapeHtml(question.Text)}</h3>
+                <div class="answers-container">
+                    ${question.Answers.map((answer, index) => `
+                        <button class="answer-btn" data-index="${index}">
+                            <span class="answer-letter">${String.fromCharCode(65 + index)}</span>
+                            <span class="answer-text">${escapeHtml(answer.Text)}</span>
+                        </button>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+
+        // Aggiungi event listener ai bottoni delle risposte
+        document.querySelectorAll(".answer-btn").forEach(btn => {
+            btn.addEventListener("click", handleAnswerSelection);
+        });
+    }
+
+    // ============================================
+    // Gestione selezione risposta
+    // ============================================
+    function handleAnswerSelection(event) {
+        const button = event.currentTarget;
+
+        // Rimuovi selezione precedente
+        document.querySelectorAll(".answer-btn").forEach(b => {
+            b.classList.remove("selected");
+        });
+
+        // Seleziona nuovo bottone
+        button.classList.add("selected");
+        selectedAnswerIndex = parseInt(button.getAttribute("data-index"));
+
+        // Mostra bottone next
+        document.getElementById("next-btn").style.display = "block";
+    }
+
+    // ============================================
+    // Aggiorna la progress bar
+    // ============================================
+    function updateProgressBar() {
+        const currentNum = currentQuestionIndex + 1;
+        const total = quizData.Questions.length;
+        const percentage = Math.round((currentNum / total) * 100);
+
+        document.getElementById("current-question-num").textContent = currentNum;
+        document.getElementById("progress-percentage").textContent = percentage + "%";
+        document.getElementById("progress-fill").style.width = percentage + "%";
+    }
+
+    // ============================================
+    // Bottone "Prossima domanda"
+    // ============================================
+    document.getElementById("next-btn").addEventListener("click", async () => {
+        // Controlla che sia stata selezionata una risposta
+        if (selectedAnswerIndex === null) {
+            alert("⚠️ Seleziona una risposta prima di continuare!");
+            return;
+        }
+
+        const question = quizData.Questions[currentQuestionIndex];
+        const isCorrect = selectedAnswerIndex === question.CorrectAnswerIndex;
+
+        // Incrementa il punteggio se corretto
+        if (isCorrect) {
             correctAnswers++;
         }
 
-        currentQuestion++;
-        selectedAnswer = null;
+        // Salva la risposta nel database
+        await saveUserAnswer(question, selectedAnswerIndex, isCorrect);
 
-        if (currentQuestion < quizData.length) {
+        // Passa alla prossima domanda
+        currentQuestionIndex++;
+
+        if (currentQuestionIndex < quizData.Questions.length) {
+            // Mostra prossima domanda
             showQuestion();
         } else {
+            // Quiz terminato
             endQuiz();
         }
     });
 
-    async function endQuiz() {
-        const scoreString = `${correctAnswers}/${quizData.length}`;  // ✅ Formato stringa
-
+    // ============================================
+    // Salva la risposta singola nel database
+    // ============================================
+    async function saveUserAnswer(question, selectedIndex, isCorrect) {
         try {
-            const dataToSend = {
+            const userAnswer = {
                 Username: username,
-                Score: scoreString,  // ✅ Invia come stringa "2/2"
-                Date: new Date().toISOString()
+                TestId: testId,
+                TestTitle: quizData.Title,
+                QuestionIndex: currentQuestionIndex,
+                QuestionText: question.Text,
+                SelectedAnswerIndex: selectedIndex,
+                SelectedAnswerText: question.Answers[selectedIndex].Text,
+                CorrectAnswerIndex: question.CorrectAnswerIndex,
+                IsCorrect: isCorrect,
+                AnsweredAt: new Date().toISOString(),
+                SessionId: sessionId
             };
 
-            console.log("📤 Dati inviati:", dataToSend);
+            console.log("📤 Salvataggio risposta:", userAnswer);
+
+            const response = await fetch("/user-answers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(userAnswer)
+            });
+
+            if (!response.ok) {
+                console.error("❌ Errore nel salvataggio della risposta");
+            } else {
+                const result = await response.json();
+                console.log("✅ Risposta salvata:", result);
+            }
+
+        } catch (error) {
+            console.error("❌ Errore durante il salvataggio:", error);
+            // Non blocchiamo il quiz se il salvataggio fallisce
+        }
+    }
+
+    // ============================================
+    // Termina il quiz e salva il risultato finale
+    // ============================================
+    async function endQuiz() {
+        const total = quizData.Questions.length;
+        const scoreString = `${correctAnswers}/${total}`;
+
+        try {
+            // Salva il risultato finale
+            const result = {
+                Username: username,
+                TestId: testId,
+                TestTitle: quizData.Title,
+                Score: scoreString,
+                CorrectAnswers: correctAnswers,
+                TotalQuestions: total,
+                Date: new Date().toISOString(),
+                SessionId: sessionId
+            };
+
+            console.log("📤 Salvataggio risultato finale:", result);
 
             const response = await fetch("/results", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dataToSend)
+                body: JSON.stringify(result)
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error("❌ Errore server:", errorText);
                 throw new Error("Errore nel salvataggio del risultato");
             }
 
-            const result = await response.json();
-            console.log("✅ Risposta server:", result);
+            console.log("✅ Risultato salvato con successo");
 
-            alert(`🎉 Complimenti ${username}!\nHai completato il quiz con punteggio: ${scoreString}`);
+            // Mostra messaggio di completamento
+            alert(`🎉 Complimenti ${username}!\n\nHai completato il quiz "${quizData.Title}"!\n\nPunteggio: ${scoreString}\n\nVerrai reindirizzato alla classifica.`);
 
-            // Porta alla pagina della classifica
+            // Reindirizza alla pagina risultati
             window.location.href = "results.html";
-        } catch (err) {
-            console.error("❌ Errore durante il salvataggio del risultato:", err);
+
+        } catch (error) {
+            console.error("❌ Errore durante il salvataggio del risultato:", error);
             alert("Si è verificato un errore durante il salvataggio del risultato.");
-        } finally {
-            localStorage.removeItem("username");
+            window.location.href = "index.html";
         }
     }
 
-    loadQuiz();
+    // ============================================
+    // Utility: escape HTML per prevenire XSS
+    // ============================================
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ============================================
+    // Inizializza il quiz al caricamento della pagina
+    // ============================================
+    initQuiz();
 </script>
 </body>
 </html>
