@@ -2,118 +2,362 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Classifica Quiz</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classifica - Coges Quiz App</title>
     <link rel="stylesheet" href="style.css" />
-    <style>
-        body {
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: #f8f9fa;
-            margin: 0;
-            padding: 30px;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-        table {
-            width: 80%;
-            margin: 30px auto;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        th, td {
-            padding: 12px 18px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background: #1976d2;
-            color: white;
-        }
-        tr:hover {
-            background: #f1f1f1;
-        }
-        .back-btn {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 15px;
-            background: #1976d2;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            text-decoration: none;
-            text-align: center;
-            width: 200px;
-        }
-        .back-btn:hover {
-            background: #1565c0;
-        }
-    </style>
 </head>
 <body>
-<h1>🏆 Classifica dei Quiz</h1>
+<div id="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>🏆 Classifica Quiz</h1>
+        <p class="subtitle">Scopri i migliori punteggi ottenuti dagli utenti</p>
+    </div>
 
-<table id="resultsTable">
-    <thead>
-    <tr>
-        <th>Utente</th>
-        <th>Punteggio</th>
-        <th>Data</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr><td colspan="3">Caricamento in corso...</td></tr>
-    </tbody>
-</table>
+    <!-- Statistiche generali -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+                <div class="stat-value" id="total-attempts">0</div>
+                <div class="stat-label">Tentativi Totali</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <div class="stat-value" id="unique-users">0</div>
+                <div class="stat-label">Utenti Unici</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-info">
+                <div class="stat-value" id="avg-score">0%</div>
+                <div class="stat-label">Punteggio Medio</div>
+            </div>
+        </div>
+    </div>
 
-<a href="index.html" class="back-btn">⬅ Torna alla Home</a>
+    <!-- Filtri (opzionale) -->
+    <div class="filters-section">
+        <input
+                type="text"
+                id="search-user"
+                placeholder="🔍 Cerca per nome utente..."
+                class="search-input"
+        />
+    </div>
+
+    <!-- Tabella risultati -->
+    <div class="table-container">
+        <table id="resultsTable">
+            <thead>
+            <tr>
+                <th>🏅 Pos.</th>
+                <th>👤 Utente</th>
+                <th>📚 Test</th>
+                <th>📊 Punteggio</th>
+                <th>📅 Data</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td colspan="5" class="loading-cell">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <span>Caricamento risultati...</span>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bottone torna alla home -->
+    <div class="actions">
+        <a href="index.html" class="back-btn">
+            ⬅ Torna alla Home
+        </a>
+        <button id="refresh-btn" class="secondary-btn">
+            🔄 Aggiorna
+        </button>
+    </div>
+</div>
 
 <script>
+    // ============================================
+    // Variabili globali
+    // ============================================
+    let allResults = [];
+    let filteredResults = [];
+
+    // ============================================
+    // Caricamento risultati dal server
+    // ============================================
     async function loadResults() {
         try {
+            showLoading(true);
+
             const response = await fetch("/results");
-            if (!response.ok) throw new Error("Errore di connessione al server");
-            const results = await response.json();
 
-            console.log("📊 Risultati ricevuti:", results);
-
-            const tbody = document.querySelector("#resultsTable tbody");
-            tbody.innerHTML = "";
-
-            if (!results || results.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3">Nessun risultato disponibile</td></tr>`;
-                return;
+            if (!response.ok) {
+                throw new Error(`Errore HTTP: ${response.status}`);
             }
 
-            results
-                .sort((a, b) => {
-                    // Estrai il numero da "5/10" -> 5
-                    const scoreA = parseInt((a.Score || "0").split("/")[0]);
-                    const scoreB = parseInt((b.Score || "0").split("/")[0]);
-                    return scoreB - scoreA;
-                })
-                .forEach(r => {
-                    const username = r.Username || 'Anonimo';
-                    const score = r.Score || '0/0';
-                    const date = r.Date || new Date();
+            allResults = await response.json();
+            console.log("📊 Risultati ricevuti:", allResults);
 
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                    <td>${username}</td>
-                    <td>${score}</td>
-                    <td>${new Date(date).toLocaleString("it-IT")}</td>
-                `;
-                    tbody.appendChild(row);
-                });
-        } catch (err) {
-            console.error("❌ Errore nel caricamento risultati:", err);
-            const tbody = document.querySelector("#resultsTable tbody");
-            tbody.innerHTML = `<tr><td colspan="3">Errore: ${err.message}</td></tr>`;
+            filteredResults = [...allResults];
+
+            // Mostra i risultati
+            displayResults();
+
+            // Calcola e mostra statistiche
+            calculateStatistics();
+
+        } catch (error) {
+            console.error("❌ Errore nel caricamento risultati:", error);
+            showError("Impossibile caricare i risultati. Riprova più tardi.");
+        } finally {
+            showLoading(false);
         }
     }
 
+    // ============================================
+    // Mostra i risultati nella tabella
+    // ============================================
+    function displayResults() {
+        const tbody = document.querySelector("#resultsTable tbody");
+
+        if (!filteredResults || filteredResults.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>Nessun risultato disponibile</p>
+                        <p class="empty-subtitle">Sii il primo a completare un quiz!</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Ordina i risultati per punteggio (decrescente) e poi per data
+        const sortedResults = [...filteredResults].sort((a, b) => {
+            const scoreA = parseScore(a.Score);
+            const scoreB = parseScore(b.Score);
+
+            if (scoreB.percentage !== scoreA.percentage) {
+                return scoreB.percentage - scoreA.percentage;
+            }
+
+            // Se i punteggi sono uguali, ordina per data (più recente prima)
+            return new Date(b.Date) - new Date(a.Date);
+        });
+
+        // Genera le righe della tabella
+        tbody.innerHTML = sortedResults.map((result, index) => {
+            const position = index + 1;
+            const medal = getMedal(position);
+            const score = parseScore(result.Score);
+            const percentage = score.percentage.toFixed(0);
+            const scoreClass = getScoreClass(score.percentage);
+            const dateFormatted = formatDate(result.Date);
+
+            return `
+                <tr class="result-row">
+                    <td class="position-cell">
+                        <span class="position ${position <= 3 ? 'top-position' : ''}">
+                            ${medal} ${position}
+                        </span>
+                    </td>
+                    <td class="username-cell">
+                        <strong>${escapeHtml(result.Username || 'Anonimo')}</strong>
+                    </td>
+                    <td class="test-cell">
+                        ${escapeHtml(result.TestTitle || 'Test sconosciuto')}
+                    </td>
+                    <td class="score-cell">
+                        <div class="score-badge ${scoreClass}">
+                            <span class="score-text">${result.Score || '0/0'}</span>
+                            <span class="score-percentage">(${percentage}%)</span>
+                        </div>
+                    </td>
+                    <td class="date-cell">${dateFormatted}</td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    // ============================================
+    // Calcola e mostra le statistiche
+    // ============================================
+    function calculateStatistics() {
+        if (!allResults || allResults.length === 0) {
+            document.getElementById("total-attempts").textContent = "0";
+            document.getElementById("unique-users").textContent = "0";
+            document.getElementById("avg-score").textContent = "0%";
+            return;
+        }
+
+        // Totale tentativi
+        const totalAttempts = allResults.length;
+        document.getElementById("total-attempts").textContent = totalAttempts;
+
+        // Utenti unici
+        const uniqueUsers = new Set(allResults.map(r => r.Username)).size;
+        document.getElementById("unique-users").textContent = uniqueUsers;
+
+        // Punteggio medio
+        const totalPercentage = allResults.reduce((sum, result) => {
+            const score = parseScore(result.Score);
+            return sum + score.percentage;
+        }, 0);
+        const avgScore = (totalPercentage / totalAttempts).toFixed(1);
+        document.getElementById("avg-score").textContent = avgScore + "%";
+    }
+
+    // ============================================
+    // Utility: parsing del punteggio "5/10" -> {correct: 5, total: 10, percentage: 50}
+    // ============================================
+    function parseScore(scoreString) {
+        if (!scoreString || typeof scoreString !== 'string') {
+            return { correct: 0, total: 0, percentage: 0 };
+        }
+
+        const parts = scoreString.split('/');
+        const correct = parseInt(parts[0]) || 0;
+        const total = parseInt(parts[1]) || 0;
+        const percentage = total > 0 ? (correct / total) * 100 : 0;
+
+        return { correct, total, percentage };
+    }
+
+    // ============================================
+    // Utility: ottiene la medaglia per la posizione
+    // ============================================
+    function getMedal(position) {
+        switch(position) {
+            case 1: return '🥇';
+            case 2: return '🥈';
+            case 3: return '🥉';
+            default: return '';
+        }
+    }
+
+    // ============================================
+    // Utility: classe CSS in base al punteggio
+    // ============================================
+    function getScoreClass(percentage) {
+        if (percentage >= 90) return 'score-excellent';
+        if (percentage >= 70) return 'score-good';
+        if (percentage >= 50) return 'score-average';
+        return 'score-poor';
+    }
+
+    // ============================================
+    // Utility: formattazione data
+    // ============================================
+    function formatDate(dateString) {
+        if (!dateString) return 'Data sconosciuta';
+
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        // Se è di oggi
+        if (diffDays === 0) {
+            if (diffMins < 1) return 'Proprio ora';
+            if (diffMins < 60) return `${diffMins} min fa`;
+            if (diffHours < 24) return `${diffHours}h fa`;
+        }
+
+        // Altrimenti formato normale
+        return date.toLocaleDateString("it-IT", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    // ============================================
+    // Utility: escape HTML per prevenire XSS
+    // ============================================
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ============================================
+    // Mostra/nascondi loading
+    // ============================================
+    function showLoading(show) {
+        const tbody = document.querySelector("#resultsTable tbody");
+        if (show) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="loading-cell">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <span>Caricamento risultati...</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // ============================================
+    // Mostra errore
+    // ============================================
+    function showError(message) {
+        const tbody = document.querySelector("#resultsTable tbody");
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="error-state">
+                    <div class="error-icon">❌</div>
+                    <p>${escapeHtml(message)}</p>
+                    <button onclick="loadResults()" class="retry-btn">Riprova</button>
+                </td>
+            </tr>
+        `;
+    }
+
+    // ============================================
+    // Filtro per ricerca utente
+    // ============================================
+    document.getElementById("search-user").addEventListener("input", (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        if (!searchTerm) {
+            filteredResults = [...allResults];
+        } else {
+            filteredResults = allResults.filter(result =>
+                (result.Username || '').toLowerCase().includes(searchTerm) ||
+                (result.TestTitle || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        displayResults();
+    });
+
+    // ============================================
+    // Bottone refresh
+    // ============================================
+    document.getElementById("refresh-btn").addEventListener("click", () => {
+        loadResults();
+    });
+
+    // ============================================
+    // Carica risultati all'avvio
+    // ============================================
     loadResults();
 </script>
 </body>
