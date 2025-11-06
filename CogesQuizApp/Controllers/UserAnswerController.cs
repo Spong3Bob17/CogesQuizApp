@@ -14,9 +14,9 @@ namespace CogesQuizApp.Controllers
     /// </summary>
     public class UserAnswerController
     {
-        private readonly DatabaseService _dbService;
+        private readonly IDatabaseService _dbService;
 
-        public UserAnswerController(DatabaseService dbService)
+        public UserAnswerController(IDatabaseService dbService)
         {
             _dbService = dbService;
         }

@@ -8,9 +8,9 @@ namespace CogesQuizApp.Controllers
 {
     public class TestController
     {
-        private readonly DatabaseService _dbService;
+        private readonly IDatabaseService _dbService;
 
-        public TestController(DatabaseService dbService)
+        public TestController(IDatabaseService dbService)
         {
             _dbService = dbService;
         }
