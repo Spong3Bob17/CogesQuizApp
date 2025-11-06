@@ -483,7 +483,6 @@ Questo progetto è stato sviluppato come test tecnico per Coges.
 
 ## 👨‍💻 Autore
 
-**[Il Tuo Nome]**
 
 - GitHub: [@Spong3Bob17](https://github.com/Spong3Bob17)
 - Email: leonardomaran17@gmail.com
