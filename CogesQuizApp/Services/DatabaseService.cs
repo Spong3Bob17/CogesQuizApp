@@ -9,7 +9,7 @@ namespace CogesQuizApp.Services
     /// Servizio per la gestione delle operazioni sul database MongoDB.
     /// Gestisce le connessioni, le query e gli indici per ottimizzare le performance.
     /// </summary>
-    public class DatabaseService
+    public class DatabaseService : IDatabaseService
     {
         private readonly IMongoDatabase _database;
 
