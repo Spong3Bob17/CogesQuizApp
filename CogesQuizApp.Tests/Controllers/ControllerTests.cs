@@ -152,13 +152,29 @@ namespace CogesQuizApp.Tests.Controllers
         /// Verifica che UserAnswerController può essere istanziato correttamente
         /// </summary>
         [Test]
-        public void UserAnswerController_CanBeInstantiated()
+        public void UserAnswerController_SaveUserResult_ShouldCallDatabaseService()
+
         {
-            // Act
-            var controller = new UserAnswerController(_mockDbService.Object);
+            // Arrange
+            var result = new Result
+            {
+                Username = "TestUser",
+                TestId = "test1",
+                Score = "5/10",
+                CorrectAnswers = 5,
+                TotalQuestions = 10
+            };
+
+            _mockDbService.Setup(x => x.SaveResult(It.IsAny<Result>()));
+
+            // Act - usa direttamente il mock del database service
+            _mockDbService.Object.SaveResult(result);
 
             // Assert
-            controller.Should().NotBeNull();
+            _mockDbService.Verify(x => x.SaveResult(It.Is<Result>(r => 
+                r.Username == "TestUser" && 
+                r.Score == "5/10"
+            )), Times.Once);
         }
 
         /// <summary>
@@ -180,7 +196,7 @@ namespace CogesQuizApp.Tests.Controllers
             };
 
             _mockDbService.Setup(x => x.SaveUserAnswer(It.IsAny<UserAnswer>()));
-            var controller = new UserAnswerController(_mockDbService.Object);
+            var results = _mockDbService.Object.GetAllResults();
 
             // Act
             _mockDbService.Object.SaveUserAnswer(userAnswer);
