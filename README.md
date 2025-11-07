@@ -489,13 +489,6 @@ Questo progetto è stato sviluppato come test tecnico per Coges.
 
 ---
 
-## 🙏 Ringraziamenti
-
-- Coges per l'opportunità
-- MongoDB per l'eccellente database NoSQL
-- NUnit team per il framework di testing
-
----
 
 **Ultimo aggiornamento**: Novembre 2025  
 **Versione**: 1.0.0
