@@ -100,15 +100,23 @@ namespace CogesQuizApp.Controllers
         /// <param name="data">Oggetto da serializzare in JSON</param>
         private void SendResponse(HttpListenerResponse response, int statusCode, object data)
         {
+            // Opzioni di serializzazione con supporto UTF-8 per caratteri accentati
+            var options = new JsonSerializerOptions
+            {
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                WriteIndented = false
+            };
+            
             // Serializza l'oggetto in JSON
-            string json = JsonSerializer.Serialize(data);
+            string json = JsonSerializer.Serialize(data, options);
             
             // Converte la stringa JSON in bytes UTF-8
             byte[] buffer = Encoding.UTF8.GetBytes(json);
             
-            // Imposta gli headers della risposta
+            // Imposta gli headers della risposta con charset UTF-8
             response.StatusCode = statusCode;
-            response.ContentType = "application/json";
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentEncoding = Encoding.UTF8;
             
             // Scrive il contenuto nella response stream
             response.OutputStream.Write(buffer, 0, buffer.Length);

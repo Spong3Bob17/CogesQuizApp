@@ -205,9 +205,10 @@ namespace CogesQuizApp
                 // Legge il contenuto del file
                 byte[] content = File.ReadAllBytes(filePath);
                 
-                // Imposta gli headers della risposta
-                context.Response.ContentType = contentType;
+                // Imposta gli headers della risposta con encoding UTF-8
+                context.Response.ContentType = contentType + "; charset=utf-8";
                 context.Response.ContentLength64 = content.Length;
+                context.Response.ContentEncoding = Encoding.UTF8;
                 
                 // Scrive il contenuto nella risposta
                 context.Response.OutputStream.Write(content, 0, content.Length);
