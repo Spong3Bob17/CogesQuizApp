@@ -8,28 +8,50 @@ using CogesQuizApp.Controllers;
 namespace CogesQuizApp
 {
     /// <summary>
-    /// Classe principale dell'applicazione.
-    /// Configura e avvia il server HTTP per servire l'applicazione web.
+    /// Classe principale dell'applicazione Coges Quiz App.
+    /// Configura e avvia il server HTTP per servire l'applicazione web e gestire le API REST.
     /// </summary>
     internal class Program
     {
+        /// <summary>
+        /// Punto di ingresso dell'applicazione.
+        /// Inizializza i servizi, configura i controller e avvia il server HTTP.
+        /// </summary>
+        /// <param name="args">Argomenti della linea di comando (non utilizzati)</param>
         static void Main(string[] args)
         {
-            // Configurazione database
+            // ============================================
+            // Configurazione Database
+            // ============================================
+            
+            // Connection string per MongoDB locale
             string connectionString = "mongodb://localhost:27017";
+            
+            // Nome del database da utilizzare
             string databaseName = "CogesQuizDB";
 
-            // Inizializzazione servizi e controller
+            // ============================================
+            // Inizializzazione Servizi e Controller
+            // ============================================
+            
+            // Crea l'istanza del servizio database (implementa IDatabaseService)
             var dbService = new DatabaseService(connectionString, databaseName);
+            
+            // Inizializza i controller con dependency injection del database service
             var testController = new TestController(dbService);
             var resultController = new ResultController(dbService);
             var userAnswerController = new UserAnswerController(dbService);
 
-            // Percorso assoluto della cartella wwwroot
+            // ============================================
+            // Configurazione Path wwwroot
+            // ============================================
+            
+            // Calcola il percorso assoluto della cartella wwwroot
+            // Risale di 3 livelli dalla cartella bin/Debug/net9.0
             string webRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "wwwroot");
             webRoot = Path.GetFullPath(webRoot);
 
-            // Verifica esistenza cartella wwwroot
+            // Verifica che la cartella wwwroot esista
             if (!Directory.Exists(webRoot))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -42,11 +64,16 @@ namespace CogesQuizApp
             Console.WriteLine($"✅ Cartella wwwroot trovata in: {webRoot}");
             Console.ResetColor();
 
-            // Avvia il server HTTP
+            // ============================================
+            // Configurazione e Avvio Server HTTP
+            // ============================================
+            
+            // Crea e configura l'HttpListener
             HttpListener listener = new HttpListener();
             listener.Prefixes.Add("http://localhost:8080/");
             listener.Start();
 
+            // Stampa informazioni di avvio
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("🚀 Server avviato su http://localhost:8080/");
             Console.ResetColor();
@@ -58,42 +85,61 @@ namespace CogesQuizApp
             Console.WriteLine("   GET  /user-answers/session/{id} - Risposte per sessione");
             Console.WriteLine("-----------------------------------------");
 
-            // Loop principale del server
+            // ============================================
+            // Loop Principale del Server
+            // ============================================
+            
+            // Loop infinito per gestire le richieste HTTP
             while (true)
             {
                 try
                 {
+                    // Attende una richiesta in arrivo (operazione bloccante)
                     var context = listener.GetContext();
+                    
+                    // Estrae il path dalla richiesta
                     string path = context.Request.Url?.AbsolutePath ?? "/";
                     string method = context.Request.HttpMethod;
 
-                    // Log della richiesta
+                    // Log della richiesta ricevuta
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     Console.WriteLine($"➡️  {method} {path}");
                     Console.ResetColor();
 
-                    // Routing per file statici
+                    // ============================================
+                    // Routing per File Statici
+                    // ============================================
+                    
+                    // Tenta di servire un file statico (HTML, CSS, JS, immagini)
                     if (ServeStaticFile(context, webRoot, path))
                     {
+                        // File statico servito con successo, continua con la prossima richiesta
                         continue;
                     }
 
-                    // Routing per API endpoints
+                    // ============================================
+                    // Routing per API Endpoints
+                    // ============================================
+                    
+                    // Route: /tests - Gestisce operazioni sui test
                     if (path.StartsWith("/tests"))
                     {
                         testController.HandleRequest(context);
                     }
+                    // Route: /results - Gestisce operazioni sui risultati
                     else if (path.StartsWith("/results"))
                     {
                         resultController.HandleRequest(context);
                     }
+                    // Route: /user-answers - Gestisce operazioni sulle risposte utente
                     else if (path.StartsWith("/user-answers"))
                     {
                         userAnswerController.HandleRequest(context);
                     }
+                    // Endpoint non trovato
                     else
                     {
-                        // Endpoint non trovato
+                        // Risponde con 404 Not Found
                         context.Response.StatusCode = 404;
                         byte[] buffer = Encoding.UTF8.GetBytes("{\"message\": \"Endpoint not found\"}");
                         context.Response.ContentType = "application/json";
@@ -103,6 +149,7 @@ namespace CogesQuizApp
                 }
                 catch (Exception ex)
                 {
+                    // Gestisce eventuali errori durante l'elaborazione delle richieste
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"❌ Errore nel server: {ex.Message}");
                     Console.ResetColor();
@@ -111,29 +158,34 @@ namespace CogesQuizApp
         }
 
         /// <summary>
-        /// Gestisce il serving di file statici (HTML, CSS, JS, immagini)
+        /// Gestisce il serving di file statici (HTML, CSS, JavaScript, immagini).
+        /// Cerca il file nel filesystem e lo invia al client se trovato.
         /// </summary>
-        /// <param name="context">Contesto HTTP</param>
-        /// <param name="webRoot">Path della cartella wwwroot</param>
-        /// <param name="path">Path richiesto</param>
-        /// <returns>True se il file è stato servito, False altrimenti</returns>
+        /// <param name="context">Contesto della richiesta HTTP</param>
+        /// <param name="webRoot">Path della cartella wwwroot contenente i file statici</param>
+        /// <param name="path">Path richiesto dal client</param>
+        /// <returns>True se il file è stato trovato e servito, False altrimenti</returns>
         private static bool ServeStaticFile(HttpListenerContext context, string webRoot, string path)
         {
-            // Se root, serve index.html
+            // Determina il percorso del file richiesto
             string filePath;
+            
+            // Se è la root ("/"), serve index.html
             if (path == "/" || path == "")
             {
                 filePath = Path.Combine(webRoot, "index.html");
             }
             else
             {
+                // Rimuove lo slash iniziale e converte in path del filesystem
                 filePath = Path.Combine(webRoot, path.TrimStart('/')
                     .Replace("/", Path.DirectorySeparatorChar.ToString()));
             }
 
-            // Se il file esiste, lo serviamo
+            // Verifica se il file esiste
             if (File.Exists(filePath))
             {
+                // Determina il Content-Type in base all'estensione del file
                 var ext = Path.GetExtension(filePath).ToLowerInvariant();
                 string contentType = ext switch
                 {
@@ -150,14 +202,21 @@ namespace CogesQuizApp
                     _ => "text/plain"
                 };
 
+                // Legge il contenuto del file
                 byte[] content = File.ReadAllBytes(filePath);
+                
+                // Imposta gli headers della risposta
                 context.Response.ContentType = contentType;
                 context.Response.ContentLength64 = content.Length;
+                
+                // Scrive il contenuto nella risposta
                 context.Response.OutputStream.Write(content, 0, content.Length);
                 context.Response.Close();
+                
                 return true;
             }
 
+            // File non trovato
             return false;
         }
     }
