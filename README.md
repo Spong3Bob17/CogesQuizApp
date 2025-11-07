@@ -483,10 +483,9 @@ Questo progetto è stato sviluppato come test tecnico per Coges.
 
 ## 👨‍💻 Autore
 
-**[Il Tuo Nome]**
 
-- GitHub: [@your-username](https://github.com/your-username)
-- Email: your.email@example.com
+- GitHub: [@Spong3Bob17](https://github.com/Spong3Bob17)
+- Email: leonardomaran17@gmail.com
 
 ---
 
